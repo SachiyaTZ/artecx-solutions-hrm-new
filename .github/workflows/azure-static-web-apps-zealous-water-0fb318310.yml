@@ -23,77 +23,50 @@ jobs:
         with:
           submodules: true
           lfs: false
-      
+          
+      # Just to confirm structure
       - name: Verify project structure
         run: |
           echo "Current directory: $(pwd)"
           echo "Repository contents:"
           ls -la
-          
-          if [ ! -d "./installer" ]; then
-            echo "❌ Error: ./installer directory does not exist!"
-            echo "Available directories:"
-            find . -type d -name "*" | head -20
-            exit 1
-          fi
-          
-          echo "Contents of installer directory:"
-          ls -la ./installer/
-          
-          if [ ! -f "./installer/package.json" ]; then
-            echo "❌ Error: ./installer/package.json does not exist!"
-            echo "This suggests the static files might be in a different location"
-            exit 1
-          fi
-      
+          echo "Contents of installer/client directory (if exists):"
+          ls -la ./installer/client || true
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-      
+          
       - name: Install dependencies
         run: |
-          if [ -f "./installer/package-lock.json" ]; then
+          if [ -f "./installer/client/package-lock.json" ]; then
             npm ci
           else
             npm install
           fi
-        working-directory: ./installer
+        working-directory: ./installer/client
       
       - name: Build application
         run: npm run build
-        working-directory: ./installer
+        working-directory: ./installer/client
         env:
           NODE_ENV: production
-      
+          
       - name: Verify build output
         run: |
-          echo "Checking build output structure..."
-          echo "Current directory: $(pwd)"
-          
-          if [ -d "./installer/dist" ]; then
-            echo "✓ Found 'dist' folder"
-            echo "Contents of dist folder:"
-            ls -la ./installer/dist/
-          elif [ -d "./installer/build" ]; then
-            echo "✓ Found 'build' folder"
-            echo "Contents of build folder:"
-            ls -la ./installer/build/
-          elif [ -d "./installer/out" ]; then
-            echo "✓ Found 'out' folder"
-            echo "Contents of out folder:"
-            ls -la ./installer/out/
-          elif [ -d "./installer/public" ]; then
-            echo "✓ Found 'public' folder"
-            echo "Contents of public folder:"
-            ls -la ./installer/public/
+          echo "Checking build output..."
+          if [ -d "./installer/client/dist" ]; then
+            echo "✅ Found dist folder"
+            ls -la ./installer/client/dist
+          elif [ -d "./installer/client/build" ]; then
+            echo "✅ Found build folder"
+            ls -la ./installer/client/build
           else
-            echo "✗ No common build output folder found"
-            echo "All files in installer directory:"
-            find ./installer -type f -name "*.html" -o -name "*.js" -o -name "*.css" | head -20
+            echo "❌ No build output found"
             exit 1
           fi
-      
+
       - name: Get OIDC token
         uses: actions/github-script@v6
         id: idtoken
@@ -102,16 +75,16 @@ jobs:
             const core = require('@actions/core')
             return await core.getIDToken()
           result-encoding: string
-      
+
       - name: Deploy to Azure Static Web Apps
         id: deploy
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ZEALOUS_WATER_0FB318310 }}
           action: "upload"
-          app_location: "./installer"
+          app_location: "./installer/client"
           api_location: ""
-          output_location: "dist"
+          output_location: "dist" # or "build" depending on your framework
           github_id_token: ${{ steps.idtoken.outputs.result }}
         env:
           NODE_ENV: production
