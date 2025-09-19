@@ -30,7 +30,12 @@ jobs:
           node-version: '18'
       
       - name: Install dependencies
-        run: npm ci
+        run: |
+          if [ -f "./installer/package-lock.json" ]; then
+            npm ci
+          else
+            npm install
+          fi
         working-directory: ./installer
       
       - name: Build application
