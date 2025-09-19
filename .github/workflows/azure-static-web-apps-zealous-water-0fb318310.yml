@@ -24,6 +24,28 @@ jobs:
           submodules: true
           lfs: false
       
+      - name: Verify project structure
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Repository contents:"
+          ls -la
+          
+          if [ ! -d "./installer" ]; then
+            echo "❌ Error: ./installer directory does not exist!"
+            echo "Available directories:"
+            find . -type d -name "*" | head -20
+            exit 1
+          fi
+          
+          echo "Contents of installer directory:"
+          ls -la ./installer/
+          
+          if [ ! -f "./installer/package.json" ]; then
+            echo "❌ Error: ./installer/package.json does not exist!"
+            echo "This suggests the static files might be in a different location"
+            exit 1
+          fi
+      
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
@@ -48,8 +70,6 @@ jobs:
         run: |
           echo "Checking build output structure..."
           echo "Current directory: $(pwd)"
-          echo "Contents of installer folder:"
-          ls -la ./installer/
           
           if [ -d "./installer/dist" ]; then
             echo "✓ Found 'dist' folder"
