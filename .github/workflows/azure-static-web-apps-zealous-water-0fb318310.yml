@@ -15,36 +15,85 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     permissions:
-       id-token: write
-       contents: read
+      id-token: write
+      contents: read
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
         with:
           submodules: true
           lfs: false
-      - name: Install OIDC Client from Core Package
-        run: npm install @actions/core@1.6.0 @actions/http-client
-      - name: Get Id Token
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: './installer/package-lock.json'
+      
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./installer
+      
+      - name: Build application
+        run: npm run build
+        working-directory: ./installer
+        env:
+          NODE_ENV: production
+      
+      - name: Verify build output
+        run: |
+          echo "Checking build output structure..."
+          echo "Current directory: $(pwd)"
+          echo "Contents of installer folder:"
+          ls -la ./installer/
+          
+          echo "Looking for build output folder..."
+          # Check for common output directories
+          if [ -d "./installer/dist" ]; then
+            echo "✓ Found 'dist' folder"
+            echo "Contents of dist folder:"
+            ls -la ./installer/dist/
+          elif [ -d "./installer/build" ]; then
+            echo "✓ Found 'build' folder"
+            echo "Contents of build folder:"
+            ls -la ./installer/build/
+          elif [ -d "./installer/out" ]; then
+            echo "✓ Found 'out' folder"
+            echo "Contents of out folder:"
+            ls -la ./installer/out/
+          elif [ -d "./installer/public" ]; then
+            echo "✓ Found 'public' folder"
+            echo "Contents of public folder:"
+            ls -la ./installer/public/
+          else
+            echo "✗ No common build output folder found"
+            echo "All files in installer directory:"
+            find ./installer -type f -name "*.html" -o -name "*.js" -o -name "*.css" | head -20
+            exit 1
+          fi
+      
+      - name: Get OIDC token
         uses: actions/github-script@v6
         id: idtoken
         with:
-           script: |
-               const coredemo = require('@actions/core')
-               return await coredemo.getIDToken()
-           result-encoding: string
-      - name: Build And Deploy
-        id: builddeploy
+          script: |
+            const core = require('@actions/core')
+            return await core.getIDToken()
+          result-encoding: string
+      
+      - name: Deploy to Azure Static Web Apps
+        id: deploy
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ZEALOUS_WATER_0FB318310 }}
           action: "upload"
-          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
-          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "./installer" # App source code path
-          api_location: "" # Api source code path - optional
-          output_location: "dist" # Built app content directory - optional
+          app_location: "./installer"
+          api_location: "" # Leave empty if no API
+          output_location: "dist" # Change this based on your framework's output
           github_id_token: ${{ steps.idtoken.outputs.result }}
-          ###### End of Repository/Build Configurations ######
+        env:
+          NODE_ENV: production
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
@@ -52,7 +101,6 @@ jobs:
     name: Close Pull Request Job
     steps:
       - name: Close Pull Request
-        id: closepullrequest
         uses: Azure/static-web-apps-deploy@v1
         with:
           action: "close"
