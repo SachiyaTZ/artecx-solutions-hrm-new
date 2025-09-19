@@ -24,7 +24,7 @@ jobs:
           submodules: true
           lfs: false
           
-      # Just to confirm structure
+      # Verify project structure
       - name: Verify project structure
         run: |
           echo "Current directory: $(pwd)"
@@ -45,6 +45,11 @@ jobs:
           else
             npm install
           fi
+        working-directory: ./installer/client
+
+      # ✅ Auto-fix lint/prettier issues
+      - name: Lint and fix code
+        run: npm run lint -- --fix || true
         working-directory: ./installer/client
       
       - name: Build application
@@ -84,7 +89,7 @@ jobs:
           action: "upload"
           app_location: "./installer/client"
           api_location: ""
-          output_location: "dist" # or "build" depending on your framework
+          output_location: "dist" # or "build" depending on your Vue setup
           github_id_token: ${{ steps.idtoken.outputs.result }}
         env:
           NODE_ENV: production
